@@ -1,7 +1,6 @@
 import os
 import sys
 import re
-from textutil import to_camel_case
 from google.protobuf.descriptor_pb2 import FileDescriptorSet, FieldOptions
 
 # Add our cwd to the path so we can import generated python protobufs
@@ -157,4 +156,4 @@ class Field:
         return t, special
 
     def generate_cpp_header(self):
-        return '{} {};'.format(self.cpp_type, to_camel_case(self.name))
+        return '{} {};'.format(self.cpp_type, self.name)
