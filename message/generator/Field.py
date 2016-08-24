@@ -6,8 +6,9 @@ from google.protobuf.descriptor_pb2 import FileDescriptorSet, FieldOptions
 # Add our cwd to the path so we can import generated python protobufs
 # And extend our options with our MessageOptions
 sys.path.append(os.getcwd() + '/..')
-from MessageOptions_pb2 import pointer, PointerType
+from EnhancedMessage_pb2 import pointer, PointerType, array_size
 FieldOptions.RegisterExtension(pointer)
+FieldOptions.RegisterExtension(array_size)
 PointerType = dict(PointerType.items())
 
 class Field:
@@ -23,7 +24,8 @@ class Field:
         self.map_type = f.type_name in Field.map_types
         self.repeated = f.label == f.LABEL_REPEATED
         self.pointer = f.options.Extensions[pointer]
-        self.bytes_type = f.type == f.TYPE_BYTES;
+        self.array_size = f.options.Extensions[array_size]
+        self.bytes_type = f.type == f.TYPE_BYTES
         # Basic types are treated as primitives by the library
         self.basic = f.type not in [f.TYPE_MESSAGE, f.TYPE_GROUP, f.TYPE_BYTES]
 
@@ -151,7 +153,11 @@ class Field:
 
         # If it's a repeated field, and not a map, it's a vector
         if self.repeated and not self.map_type:
-            t = '::std::vector<{}>'.format(t)
+            # If we have a fixed size use std::array instead
+            if self.array_size > 0:
+                t = '::std::array<{}, {}>'.format(t, self.array_size)
+            else:
+                t = '::std::vector<{}>'.format(t)
 
         return t, special
 

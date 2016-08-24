@@ -82,20 +82,30 @@ class Message:
 
                 elif v.repeated:
                     if v.bytes_type:
-                        lines.append(indent('{}.resize(proto.{}_size());'.format(v.name, v.name)))
-                        lines.append(indent('for (size_t _i = 0; _i < {}.size(); ++_i) {{'.format(v.name)))
+                        lines.append(indent('{0}.resize(proto.{0}_size());'.format(v.name.lower())))
+                        lines.append(indent('for (size_t _i = 0; _i < {0}.size(); ++_i) {{'.format(v.name)))
                         lines.append(indent('{0}[_i].insert(std::end({0}[_i]), std::begin(proto.{1}(_i)), std::end(proto.{1}(_i)));'.format(v.name, v.name.lower()), 8))
                         lines.append(indent('}'))
 
                     elif v.special_cpp_type:
-                        # Add the top of our for loop for the repeated field
-                        lines.append(indent('{}.resize(proto.{}_size());'.format(v.name, v.name)))
-                        lines.append(indent('for (size_t _i = 0; _i < {}.size(); ++_i) {{'.format(v.name)))
-                        lines.append(indent('{}[_i] << proto.{}(_i);'.format(v.name, v.name), 8))
-                        lines.append(indent('}'))
+                        if v.array_size > 0:
+                            lines.append(indent('for (size_t _i = 0; _i < {0}.size() && _i < size_t(proto.{1}_size()); ++_i) {{'.format(v.name, v.name.lower())))
+                            lines.append(indent('{0}[_i] << proto.{1}(_i);'.format(v.name, v.name.lower()), 8))
+                            lines.append(indent('}'))
+                        else:
+                            # Add the top of our for loop for the repeated field
+                            lines.append(indent('{0}.resize(proto.{1}_size());'.format(v.name, v.name.lower())))
+                            lines.append(indent('for (size_t _i = 0; _i < {0}.size(); ++_i) {{'.format(v.name)))
+                            lines.append(indent('{0}[_i] << proto.{1}(_i);'.format(v.name, v.name.lower()), 8))
+                            lines.append(indent('}'))
 
                     else:  # Basic and other types are handled the same
-                        lines.append(indent('{0}.insert(std::end({0}), std::begin(proto.{1}()), std::end(proto.{1}()));'.format(v.name, v.name.lower())))
+                        if v.array_size > 0:
+                            lines.append(indent('for (size_t _i = 0; _i < {0}.size() && _i < size_t(proto.{1}_size()); ++_i) {{'.format(v.name, v.name.lower())))
+                            lines.append(indent('{0}[_i] = proto.{1}(_i);'.format(v.name, v.name.lower()), 8))
+                            lines.append(indent('}'))
+                        else:
+                            lines.append(indent('{0}.insert(std::end({0}), std::begin(proto.{1}()), std::end(proto.{1}()));'.format(v.name, v.name.lower())))
 
                 else:
                     if v.bytes_type:
@@ -145,7 +155,7 @@ class Message:
 
                     lines.append(indent('}'))
 
-                elif v.repeated:
+                elif v.repeated: # We don't need to handle array here specially because it's the same
                     # Add the top of our for loop for the repeated field
                     lines.append(indent('for (auto& _v : {}) {{'.format(v.name)))
 
