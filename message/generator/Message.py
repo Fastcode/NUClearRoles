@@ -33,19 +33,21 @@ class Message:
     def generate_default_constructor(self):
 
         # Fully qualified c++ name
-        cpp_fqn = '::'.join(self.fqn.split('.'));
+        cpp_fqn = '::'.join(self.fqn.split('.'))
 
         # If we are empty it's easy
         if not self.fields:
             return ('{}();'.format(self.name),
                     '{}::{}() {{}}'.format(cpp_fqn, self.name))
         else:
-            field_list = ', '.join(['{} const& _{}'.format(v.cpp_type, v.name) for v in self.fields])
-            default_field_list = ', '.join(['{} const& _{} = {}'.format(v.cpp_type, v.name, v.default_value if v.default_value else '{}()'.format(v.cpp_type)) for v in self.fields])
+            reference_field_list = ', '.join(['{} const& _{}'.format(v.cpp_type, v.name) for v in self.fields])
+            copy_field_list = ', '.join(['{} _{}'.format(v.cpp_type, v.name) for v in self.fields])
+            default_reference_field_list = ', '.join(['{} const& _{} = {}'.format(v.cpp_type, v.name, v.default_value if v.default_value else '{}()'.format(v.cpp_type)) for v in self.fields])
+            default_copy_field_list = ', '.join(['{} _{} = {}'.format(v.cpp_type, v.name, v.default_value if v.default_value else '{}()'.format(v.cpp_type)) for v in self.fields])
             field_set = ', '.join(['{0}(_{0})'.format(v.name) for v in self.fields])
 
-            return ('{}({});'.format(self.name, default_field_list),
-                    '{}::{}({}) : {} {{}}'.format(cpp_fqn, self.name, field_list, field_set))
+            return ('{name}({ref_fields});\n{name}({copy_fields});'.format(name=self.name, ref_fields=default_reference_field_list, copy_fields=default_copy_field_list),
+                    '{fqn}::{name}({ref_fields}) : {member_initialise} {{}}\n{fqn}::{name}({copy_fields}) : {member_initialise} {{}}'.format(fqn=cpp_fqn, name=self.name, ref_fields=reference_field_list, copy_fields=copy_field_list, member_initialise=field_set))
 
     def generate_protobuf_constructor(self):
 
