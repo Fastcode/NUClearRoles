@@ -203,8 +203,6 @@ FUNCTION(NUCLEAR_MODULE)
         SET(test_module_target_name "Test${module_target_name}")
 
         # Rebuild our sources using the test module
-        ADD_TEST(${test_module_target_name} ${test_module_target_name})
-
         FILE(GLOB_RECURSE test_src "tests/**.cpp" "tests/**.cc" "tests/**.c")
         IF(test_src)
           ADD_EXECUTABLE(${test_module_target_name} ${test_src})
@@ -213,6 +211,8 @@ FUNCTION(NUCLEAR_MODULE)
           SET_PROPERTY(TARGET ${test_module_target_name} PROPERTY FOLDER "modules/tests")
           
           # Add the test
+          ADD_TEST(NAME ${test_module_target_name} WORKING_DIRECTORY ${CMAKE_BINARY_DIR} COMMAND ${CMAKE_CURRENT_BINARY_DIR}/${test_module_target_name})
+
         ENDIF()
     ENDIF()
 
