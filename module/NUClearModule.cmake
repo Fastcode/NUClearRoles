@@ -203,7 +203,6 @@ FUNCTION(NUCLEAR_MODULE)
         SET(test_module_target_name "Test${module_target_name}")
 
         # Rebuild our sources using the test module
-        FILE(GLOB_RECURSE test_src "tests/**.cpp" "tests/**.h")
         ADD_EXECUTABLE(${test_module_target_name} ${test_src})
         TARGET_LINK_LIBRARIES(${test_module_target_name} ${module_target_name} ${LIBRARIES})
 
@@ -212,6 +211,7 @@ FUNCTION(NUCLEAR_MODULE)
         # Add the test
         ADD_TEST(${test_module_target_name} ${test_module_target_name})
 
+        FILE(GLOB_RECURSE test_src "tests/**.cpp" "tests/**.cc" "tests/**.c")
     ENDIF()
 
 ENDFUNCTION(NUCLEAR_MODULE)
