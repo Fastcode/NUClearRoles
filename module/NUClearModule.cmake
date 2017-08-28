@@ -206,7 +206,7 @@ FUNCTION(NUCLEAR_MODULE)
         FILE(GLOB_RECURSE test_src "tests/**.cpp" "tests/**.cc" "tests/**.c")
         IF(test_src)
           ADD_EXECUTABLE(${test_module_target_name} ${test_src})
-          TARGET_LINK_LIBRARIES(${test_module_target_name} ${module_target_name} ${LIBRARIES})
+          TARGET_LINK_LIBRARIES(${test_module_target_name} ${module_target_name} ${LIBRARIES} ${NUCLEAR_TEST_LIBRARIES})
           
           SET_PROPERTY(TARGET ${test_module_target_name} PROPERTY FOLDER "modules/tests")
           
