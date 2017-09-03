@@ -19,7 +19,7 @@ FUNCTION(NUCLEAR_MODULE)
     # Parse our input arguments
     SET(options, "")
     SET(oneValueArgs "LANGUAGE")
-    SET(multiValueArgs "INCLUDES" "LIBRARIES" "SOURCES" "DATA_FILES")
+    SET(multiValueArgs "INCLUDES" "LIBRARIES" "SOURCES" "DATA_FILES" "TEST_LIBRARIES")
     CMAKE_PARSE_ARGUMENTS(MODULE "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
     # Include our own source and binary directories
@@ -206,7 +206,7 @@ FUNCTION(NUCLEAR_MODULE)
         FILE(GLOB_RECURSE test_src "tests/**.cpp" "tests/**.cc" "tests/**.c" "tests/**.hpp" "tests/**.hh" "tests/**.h")
         IF(test_src)
           ADD_EXECUTABLE(${test_module_target_name} ${test_src})
-          TARGET_LINK_LIBRARIES(${test_module_target_name} ${module_target_name} ${LIBRARIES} ${NUCLEAR_TEST_LIBRARIES})
+          TARGET_LINK_LIBRARIES(${test_module_target_name} ${module_target_name} ${MODULE_TEST_LIBRARIES} ${NUCLEAR_TEST_LIBRARIES})
           
           SET_PROPERTY(TARGET ${test_module_target_name} PROPERTY FOLDER "modules/tests")
           
