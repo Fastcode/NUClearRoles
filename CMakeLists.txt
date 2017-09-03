@@ -17,6 +17,10 @@ SET(NUCLEAR_ROLE_BANNER_FILE "${CMAKE_CURRENT_SOURCE_DIR}/roles/banner.png" CACH
 # Our location of our nuclear roles directory
 SET(NUCLEAR_ROLES_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE PATH "The path to the nuclear roles system directory")
 
+SET(NUCLEAR_ADDITIONAL_SHARED_LIBRARIES "" CACHE STRING "Additional libraries used when linking roles, extensions, and utilities")
+
+SET(NUCLEAR_TEST_LIBRARIES "" CACHE STRING "Additional libraries used when linking module tests")
+
 # Our variables that are used to locate the shared, module, and message folders
 # They are given relative to the current project directory
 SET(NUCLEAR_MODULE_DIR    "module"           CACHE PATH "The path to the module directory for NUClear")
