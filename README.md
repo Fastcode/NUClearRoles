@@ -45,6 +45,7 @@ These dependencies are:
 - Python3 with the following packages
   - argparse
   - Pillow
+  - stringcase
 - Optional dependencies:
   - [pybind11](https://github.com/pybind/pybind11) for Python module support
   - [Google Protobuf 3](https://developers.google.com/protocol-buffers/) (both c++ and python libraries) for Neutron messaging
