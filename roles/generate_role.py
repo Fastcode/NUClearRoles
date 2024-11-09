@@ -1,19 +1,38 @@
 #!/usr/bin/env python3
+#
+# MIT License
+#
+# Copyright (c) 2013 NUbots
+#
+# This file is part of the NUbots codebase.
+# See https://github.com/NUbots/NUbots for further info.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
 
-#
-# File:   generate.py
-# Authors:
-#   Brendan Annable <brendan.annable@uon.edu.au>
-#   Jake Woods <jake.f.woods@gmail.com>
-#   Trent Houliston <trent@houliston.me>
-#
-import sys
-import re
-import os
-import textwrap
 import itertools
-from banner import ampscii
-from banner import bigtext
+import os
+import re
+import sys
+import textwrap
+
+from banner import ampscii, bigtext
 
 role_name = sys.argv[1]
 banner_file = sys.argv[2]
@@ -32,7 +51,7 @@ with open(role_name, "w", encoding="utf-8") as role_file:
         # we need to replace the ::'s with /'s so we can include them.
 
         # module::a::b::C
-        # module/a/b/C/src/C.h
+        # module/a/b/C/src/C.hpp
 
         # replace :: with /
         header = re.sub(r"::", r"/", module)
@@ -58,6 +77,7 @@ with open(role_name, "w", encoding="utf-8") as role_file:
     # Add our main function and include headers
     main = textwrap.dedent(
         """\
+        // NOLINTNEXTLINE(bugprone-exception-escape) who cares
         int main(int argc, char** argv) {"""
     )
     role_file.write(main)
@@ -73,16 +93,17 @@ with open(role_name, "w", encoding="utf-8") as role_file:
     role_file.write("\n    // Print the name of the role in big letters\n")
 
     # Insert banner for the name of the executing role
-    role_banner_lines = bigtext(os.path.splitext(os.path.basename(role_name))[0]).split("\n")[:-1]
+    role_banner_lines = bigtext(os.path.splitext(os.path.basename(role_name).split("-")[-1])[0]).split("\n")[:-1]
     for l in role_banner_lines:
         role_file.write('    std::cerr << R"({})" << std::endl;\n'.format(l))
 
     start = """\
 
-    NUClear::PowerPlant::Configuration config;
+    NUClear::Configuration config;
     unsigned int nThreads = std::thread::hardware_concurrency() + 2;
     config.thread_count = nThreads >= 4 ? nThreads : 4;
 
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
     NUClear::PowerPlant plant(config, argc, const_cast<const char**>(argv));"""
 
     role_file.write(start)

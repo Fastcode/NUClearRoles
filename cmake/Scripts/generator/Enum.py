@@ -1,6 +1,32 @@
 #!/usr/bin/env python3
+#
+# MIT License
+#
+# Copyright (c) 2016 NUbots
+#
+# This file is part of the NUbots codebase.
+# See https://github.com/NUbots/NUbots for further info.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
 
-from generator.textutil import indent, dedent
+from generator.textutil import dedent, indent
 
 
 class Enum:
@@ -24,7 +50,7 @@ class Enum:
 
         # Make our if chain
         if_chain = indent(
-            "\nelse ".join(['if (str == "{}") value = Value::{};'.format(v[0], v[0]) for v in self.values])
+            "\nelse ".join(['if (str == "{}") {{ value = Value::{}; }}'.format(v[0], v[0]) for v in self.values])
         )
 
         # Get our default value
@@ -37,7 +63,9 @@ class Enum:
                 enum Value {{
             {values}
                 }};
-                Value value;
+                Value value{{Value::{default_value}}};
+
+                static constexpr size_t MAX_VALUE = {max_value};
 
                 // Constructors
                 {name}();
@@ -90,9 +118,9 @@ class Enum:
 
         impl_template = dedent(
             """\
-            typedef {fqn} T{scope_name};
+            using T{scope_name} = {fqn};
 
-            {fqn}::{name}() : value(Value::{default_value}) {{}}
+            {fqn}::{name}() = default;
 
             {fqn}::{name}(int const& v) : value(static_cast<Value>(v)) {{}}
 
@@ -100,12 +128,10 @@ class Enum:
 
             {fqn}::{name}(std::string const& str) {{
             {if_chain}
-                else throw std::runtime_error("String " + str + " did not match any enum for {name}");
+                else {{ throw std::runtime_error("String " + str + " did not match any enum for {name}"); }}
             }}
 
-            {fqn}::{name}({protobuf_name} const& p) {{
-                value = static_cast<Value>(p);
-            }}
+            {fqn}::{name}({protobuf_name} const& p) : value(static_cast<Value>(p)) {{}}
 
             bool {fqn}::operator <({name} const& other) const {{
                 return value < other.value;
@@ -175,9 +201,13 @@ class Enum:
                 return static_cast<{protobuf_name}>(value);
             }}
 
-            std::ostream& {namespace}::operator<< (std::ostream& out, const {fqn}& val) {{
-                return out << static_cast<std::string>(val);
-            }}"""
+            namespace {namespace} {{
+                std::ostream& operator<< (std::ostream& out, const {fqn}& val) {{
+                    return out << static_cast<std::string>(val);
+                }}
+            }}
+
+            """
         )
 
         python_template = dedent(
@@ -218,14 +248,17 @@ class Enum:
 
         return (
             header_template.format(
-                name=self.name, protobuf_name="::".join((".protobuf" + self.fqn).split(".")), values=values
+                name=self.name,
+                protobuf_name="::".join((".protobuf" + self.fqn).split(".")),
+                values=values,
+                default_value=default_value,
+                max_value=max([v[1] for v in self.values]),
             ),
             impl_template.format(
                 fqn="::".join(self.fqn.split(".")),
                 namespace="::".join(self.package.split(".")),
                 name=self.name,
                 protobuf_name="::".join((".protobuf" + self.fqn).split(".")),
-                default_value=default_value,
                 if_chain=if_chain,
                 switches=switches,
                 scope_name=scope_name,

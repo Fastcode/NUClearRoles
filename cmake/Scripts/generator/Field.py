@@ -1,17 +1,46 @@
 #!/usr/bin/env python3
+#
+# MIT License
+#
+# Copyright (c) 2016 NUbots
+#
+# This file is part of the NUbots codebase.
+# See https://github.com/NUbots/NUbots for further info.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
 
 import os
-import sys
 import re
-from google.protobuf.descriptor_pb2 import FileDescriptorSet, FieldOptions
+import sys
 
-# Add our cwd to the path so we can import generated python protobufs
+from google.protobuf.descriptor_pb2 import FieldOptions, FileDescriptorSet
+
+# Add the NEUTRON_BUILTIN_DIR to the path so we can import the generated builtin protobufs
 # And extend our options with our Neutron protobuf
-sys.path.append(os.getcwd() + "/..")
-from Neutron_pb2 import pointer, PointerType, array_size
+# If this environment variable is not set we default to our cwd
+# The "builtin" protobufs are the ones found in nuclear/message/proto so NEUTRON_BUILTIN_DIR should be set to path
+# where the generated python protobuf files are stored
+builtin_dir = os.environ.get("NEUTRON_BUILTIN_DIR", os.path.join(os.getcwd(), ".."))
+sys.path.append(os.path.join(builtin_dir, "python"))
+from Neutron_pb2 import PointerType, array_size, pointer  # isort:skip
 
-FieldOptions.RegisterExtension(pointer)
-FieldOptions.RegisterExtension(array_size)
 PointerType = dict(PointerType.items())
 
 
@@ -50,7 +79,7 @@ class Field:
             # and the default default for that field
             type_info = {
                 f.TYPE_DOUBLE: ("double", "0.0"),
-                f.TYPE_FLOAT: ("float", "0.0"),
+                f.TYPE_FLOAT: ("float", "0.0f"),
                 f.TYPE_INT64: ("int64", "0"),
                 f.TYPE_UINT64: ("uint64", "0"),
                 f.TYPE_INT32: ("int32", "0"),
@@ -71,6 +100,8 @@ class Field:
 
         if self.type == ".google.protobuf.Timestamp":
             self.default_value = "NUClear::clock::now()"
+        elif self.type == ".google.protobuf.Duration":
+            self.default_value = "NUClear::clock::duration(0)"
 
         # If we are repeated or a pointer our default is changed
         if self.repeated:
@@ -90,6 +121,11 @@ class Field:
 
         vector_regex = re.compile(r"^\.([fiuc]?)vec(\d*)$")
         matrix_regex = re.compile(r"^\.([fiuc]?)mat(\d*)$")
+        quaternion_regex = re.compile(r"^\.(f?)quat$")
+        isometry_regex = re.compile(r"^\.(f?)iso([23])$")
+
+        # Nothing is trivially copyable unless it is
+        self.trivially_copyable = False
 
         # Check if it is a map field
         if self.map_type:
@@ -102,29 +138,42 @@ class Field:
         elif matrix_regex.match(t):
             r = matrix_regex.match(t)
             t = "::message::conversion::math::{}mat{}".format(r.group(1), r.group(2))
+        elif quaternion_regex.match(t):
+            r = quaternion_regex.match(t)
+            t = "::message::conversion::math::{}quat".format(r.group(1))
+        elif isometry_regex.match(t):
+            r = isometry_regex.match(t)
+            t = "::message::conversion::math::{}iso{}".format(r.group(1), r.group(2))
 
         # Timestamps and durations map to real time/duration classes
         elif t == ".google.protobuf.Timestamp":
             t = "::NUClear::clock::time_point"
+            self.trivially_copyable = True
         elif t == ".google.protobuf.Duration":
             t = "::NUClear::clock::duration"
+            self.trivially_copyable = True
 
         # Standard types get mapped to their appropriate type
         elif t in ["double", "float", "bool"]:
             # double and float and bool are fine as is
             special = False
+            self.trivially_copyable = True
         elif t in ["int64", "sint64", "sfixed64"]:
             t = "int64_t"
             special = False
+            self.trivially_copyable = True
         elif t in ["uint64", "fixed64"]:
             t = "uint64_t"
             special = False
+            self.trivially_copyable = True
         elif t in ["int32", "sint32", "sfixed32"]:
             t = "int32_t"
             special = False
+            self.trivially_copyable = True
         elif t in ["uint32", "fixed32"]:
             t = "uint32_t"
             special = False
+            self.trivially_copyable = True
         elif t in ["string"]:
             t = "::std::string"
             special = False
@@ -138,20 +187,25 @@ class Field:
         # If we are using a pointer type do the manipulation here
         if self.pointer == PointerType["RAW"]:
             t = "{}*".format(t)
+            self.trivially_copyable = True
         elif self.pointer == PointerType["SHARED"]:
             t = "::std::shared_ptr<{}>".format(t)
+            self.trivially_copyable = True
         elif self.pointer == PointerType["UNIQUE"]:
             t = "::std::unique_ptr<{}>".format(t)
+            self.trivially_copyable = True
 
         # If it's a repeated field, and not a map, it's a vector
         if self.repeated and not self.map_type:
             # If we have a fixed size use std::array instead
             if self.array_size > 0:
                 t = "::std::array<{}, {}>".format(t, self.array_size)
+                self.trivially_copyable = False
             else:
                 t = "::std::vector<{}>".format(t)
+                self.trivially_copyable = False
 
         return t, special
 
     def generate_cpp_header(self):
-        return "{} {};".format(self.cpp_type, self.name)
+        return "{} {}{{{}}};".format(self.cpp_type, self.name, self.default_value if self.type != "string" else "")
